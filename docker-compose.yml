@@ -1,0 +1,17 @@
+services:
+  open-mirror:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - cache-data:/var/cache/open-mirror
+      - ./config.yaml:/etc/open-mirror/config.yaml:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  cache-data:

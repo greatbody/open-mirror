@@ -1,0 +1,42 @@
+# Binaries
+/open-mirror
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build output
+/dist/
+
+# Cache data directory
+/cache-data/
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.*
+
+# Go vendor (if used)
+vendor/
+
+# OS
+.DS_Store
+Thumbs.db

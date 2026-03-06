@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run tests
+        run: go test -v -race ./...
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          EXT=""
+          if [ "$GOOS" = "windows" ]; then EXT=".exe"; fi
+          go build -ldflags="-s -w -X main.version=${{ github.ref_name }} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -o "open-mirror-${GOOS}-${GOARCH}${EXT}" .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-mirror-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: open-mirror-*
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t open-mirror:latest .

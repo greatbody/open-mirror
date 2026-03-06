@@ -1,0 +1,55 @@
+# open-mirror configuration
+# Lazy-caching reverse proxy for Linux package repositories
+
+listen: ":8080"
+cache_dir: "./cache-data"
+
+upstreams:
+  # Ubuntu (Aliyun mirror as upstream for speed in China, change to archive.ubuntu.com for global)
+  - prefix: /ubuntu
+    origin: http://archive.ubuntu.com/ubuntu
+    metadata_patterns:
+      - "*/InRelease"
+      - "*/Release"
+      - "*/Release.gpg"
+      - "*/Packages*"
+      - "*/Sources*"
+      - "*/Translation-*"
+      - "*/dep11/*"
+      - "*/cnf/*"
+      - "*/Contents-*"
+    metadata_ttl: 3600s
+
+  # Debian
+  - prefix: /debian
+    origin: http://deb.debian.org/debian
+    metadata_patterns:
+      - "*/InRelease"
+      - "*/Release"
+      - "*/Release.gpg"
+      - "*/Packages*"
+      - "*/Sources*"
+      - "*/Translation-*"
+      - "*/dep11/*"
+      - "*/cnf/*"
+      - "*/Contents-*"
+    metadata_ttl: 3600s
+
+  # Debian Security
+  - prefix: /debian-security
+    origin: http://deb.debian.org/debian-security
+    metadata_patterns:
+      - "*/InRelease"
+      - "*/Release"
+      - "*/Release.gpg"
+      - "*/Packages*"
+      - "*/Sources*"
+      - "*/Translation-*"
+    metadata_ttl: 1800s
+
+  # Alpine
+  - prefix: /alpine
+    origin: https://dl-cdn.alpinelinux.org/alpine
+    metadata_patterns:
+      - "*/APKINDEX.tar.gz"
+    metadata_ttl: 3600s
