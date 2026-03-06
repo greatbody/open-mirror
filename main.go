@@ -13,9 +13,13 @@ import (
 	"time"
 )
 
-// Set via -ldflags at build time.
+// Version is the single source of truth for the project version.
+// Bump this when preparing a new release.
+const Version = "0.1.0"
+
+// Set via -ldflags at build time. Falls back to Version constant.
 var (
-	version   = "dev"
+	version   = Version
 	buildTime = "unknown"
 )
 

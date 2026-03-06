@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -19,9 +22,42 @@ jobs:
       - name: Run tests
         run: go test -v -race ./...
 
+  check-version:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+      needs_release: ${{ steps.compare.outputs.needs_release }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from code
+        id: get_version
+        run: |
+          VERSION=$(grep -oP 'const Version = "\K[^"]+' main.go)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Version in code: ${VERSION}"
+
+      - name: Compare with latest release
+        id: compare
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          LATEST=$(gh release view --json tagName -q '.tagName' 2>/dev/null || echo "none")
+          echo "Latest release tag: ${LATEST}"
+          CODE_VERSION="v${{ steps.get_version.outputs.version }}"
+          if [ "${LATEST}" = "${CODE_VERSION}" ]; then
+            echo "Version unchanged, no release needed."
+            echo "needs_release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "New version detected: ${CODE_VERSION} (latest: ${LATEST})"
+            echo "needs_release=true" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
     runs-on: ubuntu-latest
-    needs: test
+    needs: [test, check-version]
+    if: needs.check-version.outputs.needs_release == 'true'
     strategy:
       matrix:
         include:
@@ -34,6 +70,10 @@ jobs:
           - goos: darwin
             goarch: arm64
           - goos: windows
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
+          - goos: freebsd
             goarch: amd64
     steps:
       - uses: actions/checkout@v4
@@ -48,9 +88,10 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
         run: |
+          VERSION="${{ needs.check-version.outputs.version }}"
           EXT=""
           if [ "$GOOS" = "windows" ]; then EXT=".exe"; fi
-          go build -ldflags="-s -w -X main.version=${{ github.ref_name }} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+          go build -ldflags="-s -w -X main.version=${VERSION} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             -o "open-mirror-${GOOS}-${GOARCH}${EXT}" .
 
       - name: Upload artifact
@@ -58,6 +99,30 @@ jobs:
         with:
           name: open-mirror-${{ matrix.goos }}-${{ matrix.goarch }}
           path: open-mirror-*
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [check-version, build]
+    if: needs.check-version.outputs.needs_release == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="v${{ needs.check-version.outputs.version }}"
+          echo "Creating release ${VERSION}"
+          ls -la artifacts/
+          gh release create "${VERSION}" artifacts/open-mirror-* \
+            --title "open-mirror ${VERSION}" \
+            --generate-notes
 
   docker:
     runs-on: ubuntu-latest
