@@ -1,6 +1,6 @@
 services:
   open-mirror:
-    build: .
+    image: ghcr.io/greatbody/open-mirror:latest
     ports:
       - "8080:8080"
     volumes:
